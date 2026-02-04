@@ -11,7 +11,7 @@
 # If your network uses TLS inspection, place your CA certificate at
 # builds/moq-rs/extra-ca.pem and it will be trusted during the build.
 
-FROM rust:1.82-bookworm AS builder
+FROM rust:1.87-bookworm AS builder
 
 # Support for networks with TLS inspection - trust additional CA if provided
 RUN --mount=type=secret,id=ca_cert,target=/tmp/extra-ca.pem \
