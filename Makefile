@@ -31,6 +31,7 @@ CLIENT_IMAGE ?= moq-test-client:latest
 
 # For test-external (direct URL, not docker-compose)
 RELAY_URL ?= https://relay:4443
+TLS_DISABLE_VERIFY ?= false
 
 #############################################################################
 # Certificate Generation (following QUIC interop runner conventions)
