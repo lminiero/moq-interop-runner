@@ -14,6 +14,7 @@ Each test case follows this structure:
 - **Protocol References**: Relevant MoQT draft sections
 - **Procedure**: Step-by-step behavior
 - **Success Criteria**: What constitutes a pass
+- **Diagnostic Roles**: For multi-connection tests, the named roles for connection ID reporting (see [Connection ID Conventions](../TEST-CLIENT-INTERFACE.md#connection-id-conventions))
 - **mlog Events**: Suggested qlog/mlog events for validation (optional)
 
 ---
@@ -164,6 +165,8 @@ Each test case follows this structure:
 
 **Timeout**: 3 seconds total
 
+**Diagnostic Roles**: `publisher`, `subscriber` — report as `publisher_connection_id` and `subscriber_connection_id` in YAML diagnostics
+
 ---
 
 ### `subscribe-before-announce`
@@ -195,6 +198,8 @@ Each test case follows this structure:
 Both outcomes are valid relay behaviors. The test verifies the relay handles this scenario gracefully without crashing or hanging.
 
 **Timeout**: 3.5 seconds total
+
+**Diagnostic Roles**: `publisher`, `subscriber` — report as `publisher_connection_id` and `subscriber_connection_id` in YAML diagnostics (regardless of connection order)
 
 ---
 

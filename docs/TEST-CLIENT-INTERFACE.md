@@ -105,7 +105,7 @@ YAML diagnostic blocks after test points are OPTIONAL but encouraged, especially
 
 ```tap
 TAP version 14
-1..3
+1..4
 ok 1 - setup-only
   ---
   duration_ms: 24
@@ -123,16 +123,52 @@ not ok 3 - subscribe-error
   received: timeout
   connection_id: def789
   ...
+ok 4 - announce-subscribe
+  ---
+  duration_ms: 145
+  publisher_connection_id: abc12345
+  subscriber_connection_id: def67890
+  ...
 ```
 
-YAML blocks MUST be indented 2 spaces relative to the test point they follow. No standardized field names are required yet; use whatever is useful for debugging. Common fields:
+YAML blocks MUST be indented 2 spaces relative to the test point they follow. Common fields:
 
 | Field | Description |
 |-------|-------------|
 | `duration_ms` | Test duration in milliseconds |
-| `connection_id` | QUIC connection ID for mlog correlation |
+| `connection_id` | QUIC connection ID for mlog correlation (single-connection tests) |
 | `expected` | What the test expected |
 | `received` | What actually happened |
+
+#### Connection ID Conventions
+
+Connection IDs in YAML diagnostics enable correlation with relay-side mlog/qlog traces. The naming convention depends on the test topology:
+
+- **Single-connection tests** use `connection_id`:
+  ```yaml
+  connection_id: 84ee7793841adcadd926a1baf1c677cc
+  ```
+
+- **Multi-connection tests** use `<role>_connection_id`, where `<role>` is the logical role defined by the test case (e.g., `publisher`, `subscriber`):
+  ```yaml
+  publisher_connection_id: abc12345
+  subscriber_connection_id: def67890
+  ```
+
+The expected roles for each test case are documented in [TEST-CASES.md](./tests/TEST-CASES.md). Implementations SHOULD name connections by role rather than by connection order to avoid fragile positional coupling — the output code should not need to know which role connects first.
+
+Future tests with multiple connections in the same role (e.g., two subscribers) SHOULD use numbered suffixes: `subscriber_1_connection_id`, `subscriber_2_connection_id`.
+
+**Partial failure**: Connection IDs are best-effort. If a test fails partway through, include whatever connection IDs were successfully captured before the failure. For example, if the publisher connects but the subscriber fails:
+
+```tap
+not ok 5 - announce-subscribe
+  ---
+  duration_ms: 3001
+  publisher_connection_id: abc12345
+  message: "subscriber connection failed"
+  ...
+```
 
 ### Subtests
 
