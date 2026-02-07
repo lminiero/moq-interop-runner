@@ -231,6 +231,7 @@ list_endpoints() {
     # Remote endpoints
     if [ "$DOCKER_ONLY" != true ]; then
         local remote_count=$(jq -r --arg relay "$relay" '.implementations[$relay].roles.relay.remote | length // 0' "$CONFIG_FILE")
+        if [ "$remote_count" -gt 0 ]; then
         for i in $(seq 0 $((remote_count - 1))); do
             local url=$(jq -r --arg relay "$relay" --argjson i "$i" '.implementations[$relay].roles.relay.remote[$i].url' "$CONFIG_FILE")
             local transport=$(jq -r --arg relay "$relay" --argjson i "$i" '.implementations[$relay].roles.relay.remote[$i].transport // "unknown"' "$CONFIG_FILE")
@@ -247,6 +248,7 @@ list_endpoints() {
 
             echo "remote-$transport|$url|$tls_disable"
         done
+        fi
     fi
 }
 
