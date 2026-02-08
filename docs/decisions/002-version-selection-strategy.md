@@ -87,7 +87,7 @@ Just compute newest-shared for every pair and run them all. This is close to wha
 
 ### For the test runner
 
-The main loop becomes: compute plan (all pairs + predicted versions + classifications), apply filters, sort, execute. The plan step is separable from execution, enabling `--dry-run`.
+The main loop becomes: compute pairs (predicted versions + classifications), apply classification filters, expand each pair into endpoint-level runs (docker, remote-quic, remote-webtransport), apply transport filters, sort, execute. The plan is endpoint-level — a pair with both QUIC and WebTransport remote endpoints produces two runs. The plan step is separable from execution, enabling `--dry-run`.
 
 ### For `implementations.json`
 
