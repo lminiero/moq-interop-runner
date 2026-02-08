@@ -70,3 +70,4 @@ jobs:
           git add results/"$TIMESTAMP" index.html
           git commit -m "Add interop results for $TIMESTAMP"
           git push origin gh-pages
+
