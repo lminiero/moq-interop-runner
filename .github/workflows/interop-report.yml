@@ -1,0 +1,73 @@
+name: Interop Report
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Daily at midnight UTC
+  workflow_dispatch:
+
+
+permissions:
+  contents: write
+
+concurrency:
+  group: interop-report
+  cancel-in-progress: false
+
+jobs:
+  test-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          path: main
+
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages-site
+
+      - name: Build test client
+        working-directory: main
+        run: ./builds/moq-rs/build.sh --target client
+
+      - name: Run interop tests
+        working-directory: main
+        run: make interop-remote
+
+      - name: Publish results
+        run: |
+          NEW_RESULT=$(ls -td main/results/*/ 2>/dev/null | head -1)
+          if [ -z "$NEW_RESULT" ]; then
+            echo "No results produced — skipping publish"
+            exit 0
+          fi
+
+          TIMESTAMP=$(basename "$NEW_RESULT")
+          DEST="gh-pages-site/results/$TIMESTAMP"
+          
+          mkdir -p "$DEST"
+          cp -r "$NEW_RESULT/"* "$DEST/"
+          
+          # Generate index
+          cp main/generate-report.sh gh-pages-site/
+          cp -r main/lib gh-pages-site/
+          
+          cd gh-pages-site
+          ./generate-report.sh --index
+          
+          mv results/index.html index.html
+          # Safer replacement: only modify hrefs that look like dates (YYYY-)
+          sed -i 's|href="\([0-9]\{4\}-\)|href="results/\1|g' index.html
+          
+          rm generate-report.sh
+          rm -rf lib
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add results/"$TIMESTAMP" index.html
+          git commit -m "Add interop results for $TIMESTAMP"
+          git push origin gh-pages
+
