@@ -9,7 +9,7 @@ Build Docker images from source code for MoQ implementations.
 - Ability to test unreleased code or specific branches
 - Local development workflows
 
-For most cases, **adapters** (wrapping existing Docker images) or **remote endpoints** (testing against public relays) are simpler. Use builds when you need source-level control.
+Builds can produce images for any role (relay, client, or both). For most cases, **adapters** (wrapping existing Docker images) or **remote endpoints** (testing against public relays) are simpler. Use builds when you need source-level control.
 
 Builds are opt-in and require explicit invocation - they don't run automatically during tests.
 
