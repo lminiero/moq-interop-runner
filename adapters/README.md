@@ -4,7 +4,7 @@ Thin wrappers that make existing Docker images compatible with the interop testi
 
 ## When to Use Adapters
 
-**Adapters** are for implementations that already publish Docker images but don't follow the interop runner's conventions (like the `/certs` mount point for TLS certificates).
+**Adapters** are for implementations that already publish Docker images but don't follow the interop runner's conventions. This applies to both **relay** and **client** images.
 
 An adapter is typically just a Dockerfile that:
 1. Inherits from the upstream image (`FROM upstream-image:latest`)
@@ -15,7 +15,9 @@ For most cases, adapters are simpler than [builds](../builds/README.md) (which c
 
 ## Conventions
 
-The interop runner expects relay images to:
+### Relay Conventions
+
+The interop runner expects relay images to follow:
 
 | Convention | Description |
 |------------|-------------|
@@ -25,7 +27,24 @@ The interop runner expects relay images to:
 | Exit code 0 | Success |
 | Exit code non-zero | Failure |
 
-If an upstream image uses different paths or environment variables, an adapter bridges the gap.
+### Client Conventions
+
+The interop runner expects client images to follow:
+
+| Convention | Description |
+|------------|-------------|
+| `RELAY_URL` | Relay URL (`https://` for WebTransport, `moqt://` for raw QUIC) |
+| `TESTCASE` | Specific test to run (optional; runs all if not set) |
+| `TLS_DISABLE_VERIFY=1` | Skip TLS certificate verification |
+| TAP version 14 on stdout | Machine-parseable test output |
+| Exit code 0 | All tests passed |
+| Exit code 1 | One or more tests failed |
+
+See [TEST-CLIENT-INTERFACE.md](../docs/TEST-CLIENT-INTERFACE.md) for the full client interface specification.
+
+### When Do You Need an Adapter?
+
+If an upstream image uses different environment variable names, certificate paths, or CLI conventions, an adapter bridges the gap.
 
 ## Directory Structure
 
@@ -57,7 +76,9 @@ EXPOSE 4443/udp
 1. Create a directory under `adapters/` matching the implementation name
 2. Create a `Dockerfile` that inherits from the upstream image
 3. Map environment variables or add wrapper scripts as needed
-4. Register the adapter in `implementations.json`:
+4. Register the adapter in `implementations.json`
+
+### Relay adapter registration
 
 ```json
 "your-impl": {
@@ -66,7 +87,7 @@ EXPOSE 4443/udp
       "docker": {
         "image": "your-impl-interop:latest",
         "build": {
-          "dockerfile": "adapters/your-impl/Dockerfile",
+          "dockerfile": "adapters/your-impl/Dockerfile.relay",
           "context": "adapters/your-impl"
         },
         "upstream_image": "original-image:latest"
@@ -74,6 +95,36 @@ EXPOSE 4443/udp
     }
   }
 }
+```
+
+### Client adapter registration
+
+```json
+"your-impl": {
+  "roles": {
+    "client": {
+      "docker": {
+        "image": "your-impl-test-client:latest",
+        "build": {
+          "dockerfile": "adapters/your-impl/Dockerfile.client",
+          "context": "adapters/your-impl"
+        },
+        "upstream_image": "original-client-image:latest"
+      }
+    }
+  }
+}
+```
+
+### Example: Client Adapter
+
+If an implementation publishes a test client image that uses `TARGET_URL` instead of `RELAY_URL` and `SKIP_TLS_VERIFY` instead of `TLS_DISABLE_VERIFY`:
+
+```dockerfile
+FROM ghcr.io/example/moq-test-client:latest
+
+# Map interop runner conventions to upstream env vars
+ENTRYPOINT ["sh", "-c", "TARGET_URL=$RELAY_URL SKIP_TLS_VERIFY=$TLS_DISABLE_VERIFY exec /usr/local/bin/moq-test-client"]
 ```
 
 ## Building Adapters
@@ -88,9 +139,9 @@ docker build -t moxygen-interop:latest -f adapters/moxygen/Dockerfile adapters/m
 
 ## Adapters vs Builds
 
-| Approach | When to Use |
-|----------|-------------|
-| **Adapters** | Upstream publishes working Docker images; you just need convention mapping |
-| **Builds** | You need to compile from source, test specific commits, or no upstream image exists |
+| Approach | When to Use | Works For |
+|----------|-------------|-----------|
+| **Adapters** | Upstream publishes working Docker images; you just need convention mapping | Relays and clients |
+| **Builds** | You need to compile from source, test specific commits, or no upstream image exists | Relays and clients |
 
-Adapters are simpler and faster since they reuse existing images. Use builds when you need source-level control.
+Adapters are simpler and faster since they reuse existing images. Use builds when you need source-level control. Both approaches work for any role (relay, client, etc.).
