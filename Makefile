@@ -151,15 +151,16 @@ interop-list:
 # to conform to the interop testing conventions (e.g., /certs mount point).
 #############################################################################
 
-# Build all adapter images (discovers adapters automatically)
+# Build all adapter images (reads build info from implementations.json)
 build-adapters:
-	@for dir in adapters/*/; do \
-		name=$$(basename "$$dir"); \
-		if [ -f "$$dir/Dockerfile" ]; then \
-			echo "Building adapter: $$name"; \
-			docker build -t "$$name-interop:latest" -f "$$dir/Dockerfile" "$$dir"; \
-		fi; \
-	done
+	@jq -r '.implementations | to_entries[] | .value.roles | to_entries[]? | \
+		select(.value.docker.build.dockerfile != null) | \
+		select(.value.docker.build.dockerfile | startswith("adapters/")) | \
+		"\(.value.docker.image)|\(.value.docker.build.dockerfile)|\(.value.docker.build.context)"' \
+		implementations.json | while IFS='|' read -r image dockerfile context; do \
+			echo "Building adapter: $$image"; \
+			docker build -t "$$image" -f "$$dockerfile" "$$context"; \
+		done
 
 # Build individual adapter (kept for convenience / backward compatibility)
 build-moxygen-adapter:

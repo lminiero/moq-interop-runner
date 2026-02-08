@@ -74,9 +74,13 @@ EXPOSE 4443/udp
 ## Adding an Adapter
 
 1. Create a directory under `adapters/` matching the implementation name
-2. Create a `Dockerfile` that inherits from the upstream image
+2. Create a Dockerfile that inherits from the upstream image
 3. Map environment variables or add wrapper scripts as needed
-4. Register the adapter in `implementations.json`
+4. Register the adapter in `implementations.json` with a `build` section pointing to your Dockerfile
+
+The `build.dockerfile` path in `implementations.json` is what `make build-adapters` uses to discover and build adapter images. The Dockerfile can be named anything, but we recommend:
+- `Dockerfile` if the adapter covers a single role
+- `Dockerfile.relay` / `Dockerfile.client` if the adapter covers multiple roles
 
 ### Relay adapter registration
 
@@ -87,7 +91,7 @@ EXPOSE 4443/udp
       "docker": {
         "image": "your-impl-interop:latest",
         "build": {
-          "dockerfile": "adapters/your-impl/Dockerfile.relay",
+          "dockerfile": "adapters/your-impl/Dockerfile",
           "context": "adapters/your-impl"
         },
         "upstream_image": "original-image:latest"
@@ -130,12 +134,17 @@ ENTRYPOINT ["sh", "-c", "TARGET_URL=$RELAY_URL SKIP_TLS_VERIFY=$TLS_DISABLE_VERI
 ## Building Adapters
 
 ```bash
-# Build moxygen adapter
+# Build all adapters (reads build info from implementations.json)
+make build-adapters
+
+# Build a specific adapter directly
 make build-moxygen-adapter
 
-# Or directly
+# Or with docker build
 docker build -t moxygen-interop:latest -f adapters/moxygen/Dockerfile adapters/moxygen/
 ```
+
+`make build-adapters` discovers all adapter builds from `implementations.json` — any entry whose `build.dockerfile` starts with `adapters/` is built automatically. Adding a new adapter only requires creating the directory and registering it in `implementations.json`; no Makefile changes are needed.
 
 ## Adapters vs Builds
 
