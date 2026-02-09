@@ -43,6 +43,7 @@ DRY_RUN=false
 TRANSPORT_FILTER=""
 TARGET_VERSION=""  # Will be read from config if not specified
 RELAY_FILTER=""    # Filter to specific relay implementation
+CLIENT_FILTER=""   # Filter to specific client implementation
 CLASSIFICATION_FILTER=""  # "", "at", "ahead", or "behind"
 
 while [[ $# -gt 0 ]]; do
@@ -74,6 +75,10 @@ while [[ $# -gt 0 ]]; do
             [[ -n "${2:-}" ]] || { echo "Error: --relay requires a value"; exit 1; }
             RELAY_FILTER="$2"; shift 2
             ;;
+        --client)
+            [[ -n "${2:-}" ]] || { echo "Error: --client requires a value"; exit 1; }
+            CLIENT_FILTER="$2"; shift 2
+            ;;
         --help|-h)
             echo "Usage: $0 [OPTIONS]"
             echo ""
@@ -85,6 +90,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --webtransport-only       Filter remote endpoints to WebTransport only (https://)"
             echo "  --target-version VER      Target draft version for classification (default: from config)"
             echo "  --relay NAME              Only test specific relay implementation"
+            echo "  --client NAME             Only test specific client implementation"
             echo "  --only-at-target          Only test pairs that negotiate the target version"
             echo "  --only-ahead-of-target    Only test pairs negotiating ahead of the target"
             echo "  --only-behind-target      Only test pairs negotiating behind the target"
@@ -371,10 +377,14 @@ fi
 echo ""
 
 # Get all clients and relays
-CLIENTS_ARR=()
-while IFS= read -r line; do
-    [ -n "$line" ] && CLIENTS_ARR+=("$line")
-done < <(get_impls_with_role "client")
+if [ -n "$CLIENT_FILTER" ]; then
+    CLIENTS_ARR=("$CLIENT_FILTER")
+else
+    CLIENTS_ARR=()
+    while IFS= read -r line; do
+        [ -n "$line" ] && CLIENTS_ARR+=("$line")
+    done < <(get_impls_with_role "client")
+fi
 
 if [ -n "$RELAY_FILTER" ]; then
     RELAYS_ARR=("$RELAY_FILTER")
