@@ -172,6 +172,9 @@ Note: The moq-rs Dockerfiles and build configuration live in `builds/moq-rs/` in
 # Test specific relay
 ./run-interop-tests.sh --relay moxygen
 
+# Test specific client against all compatible relays
+./run-interop-tests.sh --client moq-rs
+
 # Filter by transport
 ./run-interop-tests.sh --quic-only
 ./run-interop-tests.sh --webtransport-only
