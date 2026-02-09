@@ -15,7 +15,7 @@
 SHELL := /bin/bash
 
 .PHONY: test test-verbose test-single test-external clean mlog-clean certs \
-        interop-all interop-docker interop-remote interop-relay interop-list \
+        interop-all interop-docker interop-remote interop-relay interop-client interop-list \
         relay-start relay-stop logs logs-relay logs-client \
         build-adapters build-moxygen-adapter build-impl build-moq-rs report help _ensure-certs
 
@@ -142,6 +142,10 @@ interop-remote:
 interop-relay:
 	@./run-interop-tests.sh --relay $(RELAY)
 
+# Run tests for specific client implementation
+interop-client:
+	@./run-interop-tests.sh --client $(CLIENT)
+
 # List available implementations
 interop-list:
 	@./run-interop-tests.sh --list
@@ -219,6 +223,7 @@ help:
 	@echo "  interop-docker        Run only Docker-based tests"
 	@echo "  interop-remote        Run only remote endpoint tests"
 	@echo "  interop-relay         Test specific relay: make interop-relay RELAY=moxygen"
+	@echo "  interop-client        Test specific client: make interop-client CLIENT=moq-rs"
 	@echo "  interop-list          List available implementations"
 	@echo ""
 	@echo "Single Tests (requires Docker images):"
@@ -251,6 +256,7 @@ help:
 	@echo "Examples:"
 	@echo "  make interop-remote                              # Test all public relays"
 	@echo "  make interop-relay RELAY=moxygen                 # Test moxygen only"
+	@echo "  make interop-client CLIENT=moq-rs               # Test moq-rs client only"
 	@echo "  make test RELAY_IMAGE=moxygen-interop:latest     # Test with moxygen Docker"
 	@echo "  make test-external RELAY_URL=https://example.com # Test specific URL"
 	@echo "  make build-moq-rs BUILD_ARGS=\"--local ~/git/moq-rs\"  # Build from local"

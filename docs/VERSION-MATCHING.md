@@ -63,13 +63,14 @@ Filters narrow the plan without changing version computation:
 | `--only-ahead-of-target` | Keep only pairs classified `ahead` | Pair-level |
 | `--only-behind-target` | Keep only pairs classified `behind` | Pair-level |
 | `--relay NAME` | Restrict to one relay | Pair-level |
+| `--client NAME` | Restrict to one client | Pair-level |
 | `--docker-only` | Drop remote endpoints | Endpoint-level |
 | `--remote-only` | Drop Docker endpoints | Endpoint-level |
 | `--transport TYPE` | Keep only remote endpoints matching TYPE | Endpoint-level |
 | `--quic-only` | Shorthand for `--transport quic` | Endpoint-level |
 | `--webtransport-only` | Shorthand for `--transport webtransport` | Endpoint-level |
 
-Classification filters and `--relay` apply before endpoint expansion. Transport filters apply during expansion. Only one `--only-*` flag is allowed. `--docker-only` and `--remote-only` are mutually exclusive.
+Classification filters, `--relay`, and `--client` apply before endpoint expansion. Transport filters apply during expansion. Only one `--only-*` flag is allowed. `--docker-only` and `--remote-only` are mutually exclusive.
 
 Note: transport filters (`--transport`, `--quic-only`, `--webtransport-only`) only affect remote endpoints. Docker tests still run unless `--remote-only` is also set.
 
