@@ -1,0 +1,13 @@
+{
+  "name": "quiche-moq",
+  "description": "Google's QUICHE MoQT relay implementation (C++/Bazel)",
+  "repository": "https://github.com/google/quiche",
+  "default_ref": "main",
+  "targets": {
+    "relay": {
+      "dockerfile": "Dockerfile.relay",
+      "image_name": "quiche-moq-relay",
+      "context": ".sources/quiche-moq"
+    }
+  }
+}
