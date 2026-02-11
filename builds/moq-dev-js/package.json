@@ -1,0 +1,14 @@
+{
+  "name": "moq-dev-js-test-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@moq/lite": "latest",
+    "@fails-components/webtransport": "latest",
+    "@fails-components/webtransport-transport-http3-quiche": "latest"
+  },
+  "trustedDependencies": [
+    "@fails-components/webtransport-transport-http3-quiche"
+  ]
+}

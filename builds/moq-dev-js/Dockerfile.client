@@ -1,0 +1,45 @@
+# syntax=docker/dockerfile:1
+# Dockerfile for moq-dev-js-test-client (Bun/TypeScript)
+#
+# Builds a test client using @moq/lite with a WebTransport polyfill.
+#
+# Usage:
+#   docker build -t moq-dev-js-test-client:latest -f Dockerfile.client .
+
+FROM oven/bun:1 AS builder
+
+WORKDIR /app
+
+# Install dependencies first for better caching
+COPY package.json bun.lock* ./
+RUN bun install --frozen-lockfile || bun install
+
+# Copy source
+COPY tsconfig.json ./
+COPY src ./src
+
+# Runtime
+FROM oven/bun:1
+
+WORKDIR /app
+
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/tsconfig.json ./
+COPY --from=builder /app/src ./src
+
+# Copy entrypoint script
+COPY entrypoint-client.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+# Create mlog directory
+RUN mkdir -p /mlog
+
+# Environment variables with defaults
+ENV RELAY_URL=https://relay:4443
+ENV TLS_DISABLE_VERIFY=0
+
+RUN groupadd -g 1000 moq && useradd -r -u 1000 -g moq moq
+USER moq
+
+ENTRYPOINT ["/app/entrypoint.sh"]
