@@ -43,6 +43,14 @@ const TESTS: &[&str] = &[
     "subscribe-before-announce",
 ];
 
+/// Tests that are skipped with a reason.
+/// moq-lite doesn't support subscribing without first receiving an announcement,
+/// so tests that require eager/speculative SUBSCRIBE cannot be implemented.
+const SKIPPED_TESTS: &[(&str, &str)] = &[
+    ("subscribe-error", "moq-lite API requires announcement before subscribe"),
+    ("subscribe-before-announce", "moq-lite API requires announcement before subscribe"),
+];
+
 const TEST_NAMESPACE: &str = "moq-test/interop";
 const TEST_TRACK: &str = "test-track";
 
@@ -91,6 +99,13 @@ async fn main() -> anyhow::Result<()> {
 
     for (i, test_name) in tests.iter().enumerate() {
         let num = i + 1;
+
+        // Check if this test should be skipped
+        if let Some((_, reason)) = SKIPPED_TESTS.iter().find(|(name, _)| name == test_name) {
+            println!("ok {} - {} # SKIP {}", num, test_name, reason);
+            continue;
+        }
+
         let start = Instant::now();
 
         let result = run_test(test_name, &client, &relay_url).await;
@@ -154,9 +169,7 @@ async fn run_test(
         "setup-only" => Duration::from_secs(2),
         "announce-only" => Duration::from_secs(2),
         "publish-namespace-done" => Duration::from_secs(2),
-        "subscribe-error" => Duration::from_secs(2),
         "announce-subscribe" => Duration::from_secs(3),
-        "subscribe-before-announce" => Duration::from_millis(3500),
         _ => Duration::from_secs(5),
     };
 
@@ -174,9 +187,7 @@ async fn run_test_inner(
         "setup-only" => test_setup_only(client, relay_url).await,
         "announce-only" => test_announce_only(client, relay_url).await,
         "publish-namespace-done" => test_publish_namespace_done(client, relay_url).await,
-        "subscribe-error" => test_subscribe_error(client, relay_url).await,
         "announce-subscribe" => test_announce_subscribe(client, relay_url).await,
-        "subscribe-before-announce" => test_subscribe_before_announce(client, relay_url).await,
         _ => anyhow::bail!("unknown test: {}", name),
     }
 }
@@ -251,43 +262,6 @@ async fn test_publish_namespace_done(
     Ok(Diagnostics::default())
 }
 
-/// Connect, subscribe to nonexistent namespace, expect error.
-/// Since moq-lite requires announce before subscribe, we wait for an announcement
-/// that should never come (the namespace doesn't exist).
-async fn test_subscribe_error(
-    client: &moq_native::Client,
-    relay_url: &url::Url,
-) -> anyhow::Result<Diagnostics> {
-    let origin = Origin::produce();
-    let mut consumer = origin.consume();
-
-    let session = client
-        .clone()
-        .with_consume(origin)
-        .connect(relay_url.clone())
-        .await
-        .context("failed to connect")?;
-
-    // Wait for an announcement of the nonexistent namespace.
-    // The relay should never announce it, so we expect a timeout.
-    tokio::select! {
-        announced = consumer.announced() => {
-            let (path, broadcast) = announced.context("consumer closed")?;
-            match broadcast {
-                Some(_) => anyhow::bail!("unexpected announcement: {}", path),
-                None => anyhow::bail!("unexpected unannouncement: {}", path),
-            }
-        }
-        _ = tokio::time::sleep(Duration::from_millis(1500)) => {
-            // Expected: no announcement for nonexistent namespace
-        }
-    }
-
-    session.close(moq_lite::Error::Cancel);
-
-    Ok(Diagnostics::default())
-}
-
 /// Two connections: publisher announces, subscriber subscribes.
 async fn test_announce_subscribe(
     client: &moq_native::Client,
@@ -351,71 +325,6 @@ async fn test_announce_subscribe(
         }
         _ = tokio::time::sleep(Duration::from_millis(1000)) => {
             // Timeout waiting - subscription was accepted (no error)
-        }
-    }
-
-    pub_session.close(moq_lite::Error::Cancel);
-    sub_session.close(moq_lite::Error::Cancel);
-
-    Ok(Diagnostics::default())
-}
-
-/// Subscriber connects first, publisher 500ms later.
-async fn test_subscribe_before_announce(
-    client: &moq_native::Client,
-    relay_url: &url::Url,
-) -> anyhow::Result<Diagnostics> {
-    // Subscriber connects first
-    let sub_origin = Origin::produce();
-    let mut sub_consumer = sub_origin.consume();
-
-    let sub_session = client
-        .clone()
-        .with_consume(sub_origin)
-        .connect(relay_url.clone())
-        .await
-        .context("subscriber failed to connect")?;
-
-    // Publisher connects 500ms later
-    tokio::time::sleep(Duration::from_millis(500)).await;
-
-    let pub_origin = Origin::produce();
-    let mut broadcast = Broadcast::produce();
-    pub_origin.publish_broadcast(TEST_NAMESPACE, broadcast.consume());
-
-    let _pub_track = broadcast.create_track(Track {
-        name: TEST_TRACK.to_string(),
-        priority: 0,
-    });
-
-    let pub_session = client
-        .clone()
-        .with_publish(pub_origin.consume())
-        .connect(relay_url.clone())
-        .await
-        .context("publisher failed to connect")?;
-
-    // Wait for either an announcement (success) or timeout (relay doesn't forward)
-    // Either outcome is valid for subscribe-before-announce
-    tokio::select! {
-        announced = sub_consumer.announced() => {
-            match announced.context("consumer closed")? {
-                (_path, Some(sub_broadcast)) => {
-                    // Got the announcement, try subscribing
-                    let track = sub_broadcast.subscribe_track(&Track {
-                        name: TEST_TRACK.to_string(),
-                        priority: 0,
-                    });
-                    tokio::select! {
-                        _ = track.closed() => {},
-                        _ = tokio::time::sleep(Duration::from_millis(1000)) => {}
-                    }
-                }
-                (path, None) => anyhow::bail!("unexpected unannouncement: {}", path),
-            }
-        }
-        _ = tokio::time::sleep(Duration::from_millis(2000)) => {
-            // Timeout - relay doesn't buffer pending subscriptions, valid
         }
     }
 
