@@ -154,7 +154,11 @@
               "url": "https://quichemoq.dev:443",
               "transport": "webtransport"
             }
-          ]
+          ],
+          "docker": {
+            "image": "quiche-moq-relay:latest",
+            "notes": "Build with: ./builds/quiche-moq/build.sh"
+          }
         }
       }
     },

@@ -1,0 +1,129 @@
+# syntax=docker/dockerfile:1
+# Dockerfile for quiche-moq relay (moqt_relay)
+#
+# This Dockerfile is used by the moq-interop-runner builds framework.
+# It expects to be run with the google/quiche repository root as the build context.
+#
+# Usage (via build.sh):
+#   ./builds/quiche-moq/build.sh --target relay
+#   ./builds/quiche-moq/build.sh --local ~/git/quiche --target relay
+#
+# quiche uses Bazel as its build system. The build stage installs Bazel,
+# compiles the moqt_relay binary, then copies it to a minimal runtime image.
+
+FROM debian:bookworm AS builder
+
+# Step 1: Install base packages and inject any extra CA cert into the system
+# trust store BEFORE any HTTPS operations. Debian apt mirrors use HTTP so this
+# layer is safe without extra certs. Subsequent steps (LLVM repo, Adoptium repo,
+# Bazelisk download, Bazel fetches) all use HTTPS and need the CA in place.
+RUN apt-get update && apt-get install -y \
+    lsb-release \
+    software-properties-common \
+    libicu-dev \
+    git \
+    curl \
+    gnupg \
+    ca-certificates \
+    python3 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN --mount=type=secret,id=ca_cert,target=/tmp/extra-ca.pem \
+    if [ -f /tmp/extra-ca.pem ]; then \
+      cp /tmp/extra-ca.pem /usr/local/share/ca-certificates/extra-ca.crt && \
+      update-ca-certificates && \
+      echo "Added extra CA to system trust store"; \
+    fi
+
+# Step 2: Install clang-18 from LLVM's official apt repo.
+# Bookworm ships clang-14 which is too old for quiche's C++20 code (googleurl
+# uses features requiring clang >= 16).
+RUN curl -fsSL https://apt.llvm.org/llvm.sh | bash -s -- 18 && \
+    apt-get install -y lld-18 && \
+    ln -sf /usr/bin/clang-18 /usr/local/bin/clang && \
+    ln -sf /usr/bin/clang++-18 /usr/local/bin/clang++ && \
+    ln -sf /usr/bin/lld-18 /usr/local/bin/lld && \
+    ln -sf /usr/bin/ld.lld-18 /usr/local/bin/ld.lld && \
+    rm -rf /var/lib/apt/lists/*
+
+# Step 3: Install Eclipse Temurin JDK 21 (Bazel 8+ requires JDK 21).
+# When an extra CA cert is present, also import it into the JDK's cacerts
+# so Bazel's internal HTTPS fetches work.
+RUN --mount=type=secret,id=ca_cert,target=/tmp/extra-ca.pem \
+    curl -fsSL https://packages.adoptium.net/artifactory/api/gpg/key/public | \
+    gpg --dearmor -o /usr/share/keyrings/adoptium.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/adoptium.gpg] https://packages.adoptium.net/artifactory/deb bookworm main" \
+    > /etc/apt/sources.list.d/adoptium.list && \
+    apt-get update && apt-get install -y temurin-21-jdk && \
+    rm -rf /var/lib/apt/lists/* && \
+    if [ -f /tmp/extra-ca.pem ]; then \
+      keytool -importcert -trustcacerts -cacerts \
+        -storepass changeit -noprompt -alias extra-ca -file /tmp/extra-ca.pem && \
+      echo "Added extra CA to JDK trust store" && \
+      touch /etc/bazel-ssl-enabled; \
+    fi
+
+# Install Bazel via Bazelisk (auto-downloads the correct Bazel version)
+# Detect architecture for correct binary
+RUN ARCH=$(dpkg --print-architecture) && \
+    case "$ARCH" in \
+      amd64) BAZELISK_ARCH="amd64" ;; \
+      arm64) BAZELISK_ARCH="arm64" ;; \
+      *) echo "Unsupported architecture: $ARCH" && exit 1 ;; \
+    esac && \
+    curl -Lo /usr/local/bin/bazel \
+      "https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-${BAZELISK_ARCH}" && \
+    chmod +x /usr/local/bin/bazel
+
+WORKDIR /build
+
+# Copy the full quiche source tree (Bazel needs the whole workspace)
+COPY . .
+
+# Build the moqt_relay binary
+# CC=clang is required per quiche build instructions
+# Bazel 8+ requires JDK 21 and its embedded JDK integrity-checks its files.
+# When a custom CA cert is needed, we tell Bazel to use the system JDK 21
+# (which has our CA already imported) via --server_javabase startup flag.
+RUN if [ -f /etc/bazel-ssl-enabled ]; then \
+      JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java)))) && \
+      echo "startup --server_javabase=${JAVA_HOME}" >> ~/.bazelrc && \
+      echo "Using system JDK at ${JAVA_HOME} for Bazel (has custom CA cert)"; \
+    fi && \
+    CC=clang bazel build -c opt //quiche:moqt_relay
+
+# Runtime image
+FROM debian:bookworm-slim AS runtime
+
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libicu72 \
+    iproute2 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy the built binary from the Bazel output tree
+COPY --from=builder /build/bazel-bin/quiche/moqt_relay /app/moqt_relay
+
+# Copy entrypoint script (maintained separately for linting and testing)
+COPY entrypoint-relay.sh /app/run_endpoint.sh
+RUN chmod +x /app/run_endpoint.sh
+
+# Create directories for mounts
+RUN mkdir -p /mlog /certs
+
+# Environment variables (following QUIC interop runner conventions)
+ENV MOQT_ROLE=relay
+ENV MOQT_PORT=4443
+
+EXPOSE 4443/udp
+
+# Healthcheck verifies the relay is listening on the configured port
+HEALTHCHECK --interval=5s --timeout=3s --start-period=5s \
+  CMD sh -c 'ss -uln | grep -q ":${MOQT_PORT:-4443}" || exit 1'
+
+RUN useradd -r -u 1000 -g nogroup moq
+USER moq
+
+ENTRYPOINT ["/app/run_endpoint.sh"]
