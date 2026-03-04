@@ -249,6 +249,36 @@
           ]
         }
       }
+    },
+
+    "xquic": {
+      "name": "xquic",
+      "organization": "Alibaba",
+      "repository": "https://github.com/alibaba/xquic",
+      "draft_versions": ["draft-14"],
+      "notes": "C implementation. Raw QUIC transport only (moqt://).",
+      "roles": {
+        "relay": {
+          "docker": {
+            "image": "ghcr.io/sy0307/xquic-moq-relay:latest",
+            "build": {
+              "dockerfile": "builds/xquic/Dockerfile.relay",
+              "context": "builds/xquic"
+            },
+            "notes": "Pre-built on GHCR (amd64). To build from source: docker build -f builds/xquic/Dockerfile.relay builds/xquic/"
+          }
+        },
+        "client": {
+          "docker": {
+            "image": "ghcr.io/sy0307/xquic-moq-client:latest",
+            "build": {
+              "dockerfile": "builds/xquic/Dockerfile.client",
+              "context": "builds/xquic"
+            },
+            "notes": "Pre-built on GHCR (amd64). To build from source: docker build -f builds/xquic/Dockerfile.client builds/xquic/"
+          }
+        }
+      }
     }
   },
 
