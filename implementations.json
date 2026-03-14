@@ -272,13 +272,13 @@
       "roles": {
         "relay": {
           "docker": {
-            "image": "ghcr.io/sy0307/xquic-moq-relay:latest",
+            "image": "ghcr.io/englishm/moq-interop-runner-xquic-moq-relay:latest",
             "notes": "Pre-built on GHCR (amd64). To build from source: ./builds/xquic/build.sh --target relay"
           }
         },
         "client": {
           "docker": {
-            "image": "ghcr.io/sy0307/xquic-moq-client:latest",
+            "image": "ghcr.io/englishm/moq-interop-runner-xquic-moq-client:latest",
             "notes": "Pre-built on GHCR (amd64). To build from source: ./builds/xquic/build.sh --target client"
           }
         }
