@@ -60,7 +60,7 @@ Filter a single relay: `make interop-remote RELAY=moxygen`. See [Getting Started
 | quiche-moq | Google | draft-14 | relay | `https://quichemoq.dev:443` |
 | moqtail | OzU | draft-14 | relay | `https://relay.moqtail.dev` |
 | libquicr | Cisco | draft-14 | relay | `https://us-west-2.relay.quicr.org:33437/relay` |
-| imquic | Meetecho | draft-13-14 | relay | `https://lminiero.it:9000` |
+| imquic | Meetecho | draft-16-17 | relay | `https://lminiero.it:9000` |
 | moq (moq-dev) | Luke Curley | draft-14 | relay | `https://cdn.moq.dev/anon` |
 
 This table is a snapshot — run `make interop-list` or see [`implementations.json`](./implementations.json) for the current state. See [IMPLEMENTATIONS.md](./IMPLEMENTATIONS.md) for how to add your implementation.
