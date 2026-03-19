@@ -18,9 +18,11 @@ RUN apt-get update && \
 
 WORKDIR /build
 
-# Build release binary
-RUN git clone https://github.com/meetecho/imquic.git /build/imquic && \
-    cd /build/imquic && \
+# Copy source from build context (provided by build.sh)
+COPY . /build/imquic
+
+# Build picoquic dependency, then imquic
+RUN cd /build/imquic && \
     git clone https://github.com/private-octopus/picoquic /build/imquic/picoquic && \
     cd /build/imquic/picoquic && \
     cmake -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DPICOQUIC_FETCH_PTLS=Y . && \
@@ -33,15 +35,16 @@ RUN git clone https://github.com/meetecho/imquic.git /build/imquic && \
 # Runtime image
 FROM debian:bookworm-slim AS runtime
 
-RUN apt-get update && apt-get install -y \
-    ca-certificates libglib2.0 libssl libjansson && \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    ca-certificates libglib2.0-0 libssl3 libjansson4 && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy binary and libraey
+# Copy binary and library
 COPY --from=builder /build/imquic/bin/imquic-moq-interop-test /app/imquic-moq-interop-test
-COPY --from=builder /build/imquic/bin/libimquic.* /app/
+COPY --from=builder /build/imquic/lib/libimquic.so* /app/
 
 RUN ldconfig
 
@@ -56,6 +59,7 @@ RUN mkdir -p /mlog
 # Environment variables with defaults
 ENV RELAY_URL=https://relay:4443
 ENV TLS_DISABLE_VERIFY=0
+ENV LD_LIBRARY_PATH=/app:/usr/lib
 
 RUN useradd -r -u 1000 -g nogroup moq
 USER moq
